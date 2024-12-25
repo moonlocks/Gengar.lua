@@ -1,0 +1,141 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local CamlockState = false
+local HorizontalPrediction = 0.05780  -- Horizontal Prediction
+local VerticalPrediction = 0.020     -- Vertical Prediction
+local JumpOffset = -0.1  -- Offset for jumping players
+local FallOffset = 0.1   -- Offset for falling players
+local HitPart = "Head"   -- Part to aim at
+
+-- Function to find the nearest enemy to the screen center
+function FindNearestEnemy()
+    local ClosestDistance, ClosestPlayer = math.huge, nil
+    local CenterPosition = Vector2.new(
+        game:GetService("GuiService"):GetScreenResolution().X / 2,
+        game:GetService("GuiService"):GetScreenResolution().Y / 2
+    )
+
+    -- Iterate through players to find the closest one
+    for _, Player in ipairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer then
+            local Character = Player.Character
+            if Character and Character:FindFirstChild(HitPart) and Character.Humanoid.Health > 0 then
+                local Position, IsVisibleOnViewport = 
+                    game:GetService("Workspace").CurrentCamera:WorldToViewportPoint(Character[HitPart].Position)
+
+                if IsVisibleOnViewport then
+                    local Distance = (CenterPosition - Vector2.new(Position.X, Position.Y)).Magnitude
+                    if Distance < ClosestDistance then
+                        ClosestPlayer = Character[HitPart]
+                        ClosestDistance = Distance
+                    end
+                end
+            end
+        end
+    end
+
+    return ClosestPlayer
+end
+
+local enemy = nil
+
+-- Camera lock logic
+RunService.Heartbeat:Connect(function()
+    if CamlockState == true then
+        if enemy then
+            local camera = workspace.CurrentCamera
+            -- Applying prediction to the enemy position to "lead" the camera
+            local predictedPosition = enemy.Position + enemy.Velocity * HorizontalPrediction + Vector3.new(0, VerticalPrediction, 0)
+            camera.CFrame = CFrame.new(camera.CFrame.p, predictedPosition)
+        end
+    end
+end)
+
+-- GUI for toggling the camera lock on and off
+local script = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local UICorner = Instance.new("UICorner")
+local Logo = Instance.new("ImageLabel")
+local TextButton = Instance.new("TextButton")
+local UICorner_2 = Instance.new("UICorner")
+
+-- Properties for the GUI elements
+script.Name = "Gengar.lua"
+script.Parent = game.CoreGui
+script.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+Frame.Parent = script
+Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Frame.BorderSizePixel = 0
+Frame.Position = UDim2.new(0.133798108, 0, 0.20107238, 0)
+Frame.Size = UDim2.new(0, 100, 0, 100)  -- The square frame (size is 100x100)
+Frame.Active = true
+Frame.Draggable = true
+
+-- Adding rounded corners to the frame
+UICorner.Parent = Frame
+
+-- Logo Image: Quarter-circle button
+Logo.Name = "Logo"
+Logo.Parent = Frame
+Logo.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Logo.BackgroundTransparency = 1.000  -- No transparency
+Logo.BorderColor3 = Color3.fromRGB(0, 0, 0)
+Logo.BorderSizePixel = 0
+Logo.Position = UDim2.new(0, 0, 0, 0)  -- Align the image to the frame
+Logo.Size = UDim2.new(0, 100, 0, 100)  -- The size of the quarter circle button
+Logo.Image = "rbxassetid://124061138902449"  -- Quarter-circle button asset ID
+Logo.ImageTransparency = 0.0  -- Full visibility for the button
+
+-- TextButton to toggle the camera lock
+TextButton.Parent = Frame
+TextButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+TextButton.BackgroundTransparency = 1.000  -- Transparent background
+TextButton.BorderColor3 = Color3.fromRGB(0, 0, 0)
+TextButton.BorderSizePixel = 0
+TextButton.Position = UDim2.new(0.5, -35, 0.5, -35)  -- Position centered
+TextButton.Size = UDim2.new(0, 70, 0, 70)  -- Quarter circle button size
+TextButton.Text = "OFF"  -- Default text (OFF)
+TextButton.TextColor3 = Color3.fromRGB(169, 169, 169)  -- Set the text color to gray
+TextButton.TextTransparency = 0.3  -- Make text slightly transparent
+TextButton.TextScaled = true
+TextButton.Font = Enum.Font.Bangers  -- Setting the font to a Y2K-like font
+
+-- Add the action to toggle lock/unlock and show notifications
+local state = true
+TextButton.MouseButton1Click:Connect(function()
+    state = not state
+    if not state then
+        TextButton.Text = "ON"  -- Camera locked
+        CamlockState = true
+        enemy = FindNearestEnemy()  -- Lock camera to the nearest enemy
+
+        if enemy then
+            -- Send a notification that you're locked onto a player
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "Camera Lock",
+                Text = "Locked to: " .. enemy.Parent.Name,  -- Show the name of the player you're locked onto
+                Icon = "rbxassetid://124061138902449",  -- Optional: add your icon here
+                Duration = 5
+            })
+        end
+    else
+        TextButton.Text = "OFF"  -- Camera unlocked
+        CamlockState = false
+        enemy = nil  -- Unlock camera
+
+        -- Send a notification that the camera was unlocked
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Camera Lock",
+            Text = "Unlocked",
+            Icon = "rbxassetid://124061138902449",  -- Optional: add your icon here
+            Duration = 5
+        })
+    end
+end)
+
+-- Adding rounded corners to the button
+UICorner_2.Parent = TextButton
